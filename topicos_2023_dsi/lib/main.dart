@@ -1,242 +1,231 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:english_words/english_words.dart';
+import 'package:startup_namer/RepositoryParPalavra.dart';
+import 'edit_page.dart';
+import 'ParPalavra.dart';
 
-enum ViewType { grid, list }
+void main() {
+  runApp(const MyApp());
+}
 
-// função principal
-void main() => runApp(MyApp());
+RepositoryParPalavra repositoryParPalavra = new RepositoryParPalavra();
 
-// classe que guarda as configurações do app
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Startup Name Generator',
+      title: 'Welcome to Flutter',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Color.fromARGB(255, 81, 68, 255)),
       ),
-      home: RandomWords(),
+      initialRoute: '/',
+      routes: {
+        RandomWords.routeName: (context) => const RandomWords(),
+        EditScreen.routeName: (context) => const EditScreen()
+      },
     );
   }
 }
 
 class RandomWords extends StatefulWidget {
-  //static const routeName = '/';
+  const RandomWords({Key? key}) : super(key: key);
+  static const routeName = '/';
 
-  // cria o estado da pagina RandomWords (pagina home)
   @override
   _RandomWordsState createState() => _RandomWordsState();
 }
 
 class _RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
-  final _saved = <WordPair>{};
-  final _biggerFont = const TextStyle(fontSize: 16);
+  final _biggerFont = const TextStyle(fontSize: 18.0);
+  final _saved = <ParPalavra>[];
+  bool cardMode = false;
+  bool screenEditMode = false;
+  String nome = "Startup Name Generator";
 
-  ViewType _viewType = ViewType.list;
-  int _colum = 1;
-
-  // construção da página inicial (RandomWords)
   @override
   Widget build(BuildContext context) {
+    print("widght state");
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Startup Name Generator'),
-        actions: [
-          IconButton(
-              icon: const Icon(Icons.list, color: Colors.lightBlue),
-              onPressed: _pushSaved),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-          backgroundColor: const Color.fromARGB(255, 244, 177, 54),
-          child:
-              Icon(_viewType == ViewType.grid ? Icons.grid_view : Icons.list),
-          onPressed: () {
-            if (_viewType == ViewType.grid) {
-              _viewType = ViewType.list;
-              _colum = 1;
-            } else {
-              _viewType = ViewType.grid;
-              _colum = 2;
-            }
-            setState(() {});
-          }),
-      body: _buildSuggestions(),
+        appBar: AppBar(
+          title: Text(nome),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.list),
+              onPressed: _pushSaved,
+              tooltip: 'Saved Suggestions',
+            ),
+            IconButton(
+              onPressed: (() {
+                setState(() {
+                  if (cardMode == false) {
+                    cardMode = true;
+                    debugPrint('$cardMode');
+                  } else if (cardMode == true) {
+                    cardMode = false;
+                    debugPrint('$cardMode');
+                  }
+                });
+              }),
+              tooltip:
+                  cardMode ? 'List Vizualization' : 'Card Mode Vizualization',
+              icon: Icon(Icons.auto_fix_normal_outlined),
+            ),
+            IconButton(
+              icon: const Icon(Icons.plus_one),
+              tooltip: 'Add new word',
+              onPressed: () {
+                screenEditMode = true;
+                setState(() {
+                  Navigator.popAndPushNamed(context, '/edit', arguments: {
+                    'parPalavra': repositoryParPalavra.getAll(),
+                    'palavra': screenEditMode
+                  });
+                });
+              },
+            )
+          ],
+        ),
+        body: _buildSuggestions(cardMode));
+  }
+
+//Favorites Screen
+  void _pushSaved() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (BuildContext context) {
+        final tiles = _saved.map(
+          (ParPalavra pair) {
+            return ListTile(
+              title: Text(
+                pair.asPascalCase,
+                style: _biggerFont,
+              ),
+            );
+          },
+        );
+        final divided = tiles.isNotEmpty
+            ? ListTile.divideTiles(
+                context: context,
+                tiles: tiles,
+              ).toList()
+            : <Widget>[];
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Saved Suggestions'),
+          ),
+          body: ListView(children: divided),
+        );
+      }),
     );
   }
 
-  Widget _buildSuggestions() {
-    return GridView.builder(
-        itemCount: _viewType == ViewType.grid ? 20 : 40,
-        padding: const EdgeInsets.all(16),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: _colum,
-          childAspectRatio: _viewType == ViewType.grid ? 1 : 10,
-        ),
+//Building Suggestions
+  Widget _buildSuggestions(bool cardMode) {
+    print('list mode changed');
+
+    if (cardMode == false) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16.0),
         itemBuilder: (context, i) {
-          if (i.isOdd && _viewType == ViewType.list) {
-            return const Divider();
+          if (i.isOdd) return const Divider();
+          print("list view");
+          final index = i ~/ 2;
+
+          if (index >= repositoryParPalavra.getAll().length) {
+            repositoryParPalavra.CreateParPalavra(10);
+            print("create word");
           }
+          return _buildRow(repositoryParPalavra.getByIndex(index));
+        },
+      );
+    } else {
+      return _cardVizualizaton();
+    }
+  }
 
-          final index = i ~/ 1;
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10));
-          }
-
-          final alreadySaved =
-              _saved.contains(_suggestions[index]); //análogo a um state
-
-          return ListTile(
+//Building list Rows
+  Widget _buildRow(ParPalavra pair) {
+    print("build row");
+    final alreadySaved = _saved.contains(pair);
+    var color = Colors.transparent;
+    return Dismissible(
+        key: UniqueKey(),
+        direction: DismissDirection.endToStart,
+        onDismissed: (direction) {
+          setState(() {
+            if (alreadySaved) {
+              _saved.remove(pair);
+            }
+            repositoryParPalavra.removeParPalavra(pair);
+          });
+        },
+        background: Container(
+          color: Color.fromARGB(255, 81, 68, 255),
+          padding: EdgeInsets.all(8.0),
+          alignment: Alignment.centerRight,
+          child: Text(
+            "Excluir",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+            ),
+          ),
+        ),
+        child: ListTile(
             title: Text(
-              _suggestions[index].asPascalCase,
+              pair.asPascalCase,
               style: _biggerFont,
             ),
-            trailing: Wrap(
-              // spacing: -10, não funciona
-              children: <Widget>[
-                IconButton(
-                  icon: Icon(
+            trailing: IconButton(
+                icon: Icon(
                     alreadySaved ? Icons.favorite : Icons.favorite_border,
-                    color: alreadySaved
-                        ? const Color.fromARGB(255, 255, 115, 0)
-                        : null,
-                    semanticLabel: alreadySaved
-                        ? 'Desfavoritar'
-                        : 'Salvo', //análogo ao alt
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      //lógica da troca de estado
-                      if (alreadySaved) {
-                        _saved.remove(_suggestions[index]);
-                      } else {
-                        _saved.add(_suggestions[index]);
-                      }
-                    });
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(
-                    CupertinoIcons.delete,
-                    semanticLabel: 'Deletado',
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      if (alreadySaved) {
-                        _saved.remove(_suggestions[0]);
-                      }
-                      _suggestions.remove(_suggestions[0]); //remove do array
-                    });
-                  },
-                ),
-              ],
-            ),
+                    color:
+                        alreadySaved ? Color.fromARGB(255, 81, 68, 255) : null,
+                    semanticLabel: alreadySaved ? 'Remove from saved' : 'Save'),
+                tooltip: "Favorite",
+                hoverColor: color,
+                onPressed: () {
+                  setState(() {
+                    if (alreadySaved) {
+                      _saved.remove(pair);
+                    } else {
+                      _saved.add(pair);
+                    }
+                  });
+                }),
             onTap: () {
-              _editWordPair(context, _suggestions[index],
-                  _suggestions.indexOf(_suggestions[index]));
-            },
-          );
-        });
+              setState(() {
+                Navigator.popAndPushNamed(context, '/edit', arguments: {
+                  'parPalavra': repositoryParPalavra.getAll(),
+                  'palavra': pair,
+                });
+              });
+            }));
   }
 
-  // tela de edição do par de palavras
-  void _editWordPair(BuildContext context, WordPair pair, int index) {
-    String? firstWord;
-    String? secondWord;
-    final formKey = GlobalKey<FormState>();
-
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (BuildContext context) {
-      return Scaffold(
-          appBar: AppBar(title: const Text('Edição de palavra')),
-          body: Container(
-            color: Colors.black12,
-            padding: const EdgeInsets.all(20.0),
-            alignment: Alignment.center,
-            child: Form(
-                key: formKey,
-                child: Column(
-                  children: <Widget>[
-                    TextFormField(
-                      initialValue: firstWord,
-                      decoration: const InputDecoration(
-                        hintText: 'Primeira palavra',
-                      ),
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Campo obrigatório';
-                        }
-                        return null;
-                      },
-                      onSaved: (value) => firstWord = value,
-                    ),
-                    TextFormField(
-                      initialValue: secondWord,
-                      decoration: const InputDecoration(
-                        hintText: 'Segunda palavra',
-                      ),
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Campo obrigatório';
-                        }
-                        return null;
-                      },
-                      onSaved: (value) => secondWord = value,
-                    ),
-                    const SizedBox(
-                      height: 32,
-                    ),
-                    ElevatedButton(
-                        onPressed: () {
-                          if (formKey.currentState!.validate()) {
-                            formKey.currentState!.save();
-                            setState(() {
-                              var pairUpdated =
-                                  WordPair(firstWord!, secondWord!);
-                              _suggestions.insert(index, pairUpdated);
-                              Navigator.of(context).pop();
-                            });
-                          }
-                        },
-                        child: const Padding(
-                            padding: EdgeInsets.all(15),
-                            child: Text('Salvar'))),
-                  ],
-                )),
-          ));
-    }));
-  }
-
-  void _pushSaved() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          final tiles = _saved.map(
-            (WordPair pair) {
-              return ListTile(
-                title: Text(
-                  pair.asPascalCase,
-                  style: _biggerFont,
-                ),
-              );
-            },
-          );
-          final divided = ListTile.divideTiles(
-            context: context,
-            tiles: tiles,
-          ).toList();
-
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Saved Suggestions'),
-            ),
-            body: ListView(children: divided),
-          );
-        },
-      ),
+//Building cards vizualization
+  Widget _cardVizualizaton() {
+    print('card mode changed');
+    return GridView.builder(
+      padding: EdgeInsets.all(10),
+      gridDelegate: new SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+          childAspectRatio: 8),
+      itemBuilder: (context, index) {
+        if (index >= repositoryParPalavra.getAll().length) {
+          repositoryParPalavra.CreateParPalavra(10);
+        }
+        return Column(
+          children: [_buildRow(repositoryParPalavra.getByIndex(index))],
+        );
+      },
     );
   }
 }
