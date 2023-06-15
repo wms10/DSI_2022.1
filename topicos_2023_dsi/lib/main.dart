@@ -1,115 +1,242 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:english_words/english_words.dart';
 
-void main() {
-  runApp(const MyApp());
-}
+enum ViewType { grid, list }
 
+// função principal
+void main() => runApp(MyApp());
+
+// classe que guarda as configurações do app
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Startup Name Generator',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+        brightness: Brightness.dark,
+        primaryColor: Colors.white,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: RandomWords(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
+class RandomWords extends StatefulWidget {
+  //static const routeName = '/';
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+  // cria o estado da pagina RandomWords (pagina home)
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _RandomWordsState createState() => _RandomWordsState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _RandomWordsState extends State<RandomWords> {
+  final _suggestions = <WordPair>[];
+  final _saved = <WordPair>{};
+  final _biggerFont = const TextStyle(fontSize: 16);
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+  ViewType _viewType = ViewType.list;
+  int _colum = 1;
 
+  // construção da página inicial (RandomWords)
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
-        ),
+        title: const Text('Startup Name Generator'),
+        actions: [
+          IconButton(
+              icon: const Icon(Icons.list, color: Colors.lightBlue),
+              onPressed: _pushSaved),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+          backgroundColor: const Color.fromARGB(255, 244, 177, 54),
+          child:
+              Icon(_viewType == ViewType.grid ? Icons.grid_view : Icons.list),
+          onPressed: () {
+            if (_viewType == ViewType.grid) {
+              _viewType = ViewType.list;
+              _colum = 1;
+            } else {
+              _viewType = ViewType.grid;
+              _colum = 2;
+            }
+            setState(() {});
+          }),
+      body: _buildSuggestions(),
+    );
+  }
+
+  Widget _buildSuggestions() {
+    return GridView.builder(
+        itemCount: _viewType == ViewType.grid ? 20 : 40,
+        padding: const EdgeInsets.all(16),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _colum,
+          childAspectRatio: _viewType == ViewType.grid ? 1 : 10,
+        ),
+        itemBuilder: (context, i) {
+          if (i.isOdd && _viewType == ViewType.list) {
+            return const Divider();
+          }
+
+          final index = i ~/ 1;
+          if (index >= _suggestions.length) {
+            _suggestions.addAll(generateWordPairs().take(10));
+          }
+
+          final alreadySaved =
+              _saved.contains(_suggestions[index]); //análogo a um state
+
+          return ListTile(
+            title: Text(
+              _suggestions[index].asPascalCase,
+              style: _biggerFont,
+            ),
+            trailing: Wrap(
+              // spacing: -10, não funciona
+              children: <Widget>[
+                IconButton(
+                  icon: Icon(
+                    alreadySaved ? Icons.favorite : Icons.favorite_border,
+                    color: alreadySaved
+                        ? const Color.fromARGB(255, 255, 115, 0)
+                        : null,
+                    semanticLabel: alreadySaved
+                        ? 'Desfavoritar'
+                        : 'Salvo', //análogo ao alt
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      //lógica da troca de estado
+                      if (alreadySaved) {
+                        _saved.remove(_suggestions[index]);
+                      } else {
+                        _saved.add(_suggestions[index]);
+                      }
+                    });
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(
+                    CupertinoIcons.delete,
+                    semanticLabel: 'Deletado',
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      if (alreadySaved) {
+                        _saved.remove(_suggestions[0]);
+                      }
+                      _suggestions.remove(_suggestions[0]); //remove do array
+                    });
+                  },
+                ),
+              ],
+            ),
+            onTap: () {
+              _editWordPair(context, _suggestions[index],
+                  _suggestions.indexOf(_suggestions[index]));
+            },
+          );
+        });
+  }
+
+  // tela de edição do par de palavras
+  void _editWordPair(BuildContext context, WordPair pair, int index) {
+    String? firstWord;
+    String? secondWord;
+    final formKey = GlobalKey<FormState>();
+
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (BuildContext context) {
+      return Scaffold(
+          appBar: AppBar(title: const Text('Edição de palavra')),
+          body: Container(
+            color: Colors.black12,
+            padding: const EdgeInsets.all(20.0),
+            alignment: Alignment.center,
+            child: Form(
+                key: formKey,
+                child: Column(
+                  children: <Widget>[
+                    TextFormField(
+                      initialValue: firstWord,
+                      decoration: const InputDecoration(
+                        hintText: 'Primeira palavra',
+                      ),
+                      validator: (String? value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Campo obrigatório';
+                        }
+                        return null;
+                      },
+                      onSaved: (value) => firstWord = value,
+                    ),
+                    TextFormField(
+                      initialValue: secondWord,
+                      decoration: const InputDecoration(
+                        hintText: 'Segunda palavra',
+                      ),
+                      validator: (String? value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Campo obrigatório';
+                        }
+                        return null;
+                      },
+                      onSaved: (value) => secondWord = value,
+                    ),
+                    const SizedBox(
+                      height: 32,
+                    ),
+                    ElevatedButton(
+                        onPressed: () {
+                          if (formKey.currentState!.validate()) {
+                            formKey.currentState!.save();
+                            setState(() {
+                              var pairUpdated =
+                                  WordPair(firstWord!, secondWord!);
+                              _suggestions.insert(index, pairUpdated);
+                              Navigator.of(context).pop();
+                            });
+                          }
+                        },
+                        child: const Padding(
+                            padding: EdgeInsets.all(15),
+                            child: Text('Salvar'))),
+                  ],
+                )),
+          ));
+    }));
+  }
+
+  void _pushSaved() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          final tiles = _saved.map(
+            (WordPair pair) {
+              return ListTile(
+                title: Text(
+                  pair.asPascalCase,
+                  style: _biggerFont,
+                ),
+              );
+            },
+          );
+          final divided = ListTile.divideTiles(
+            context: context,
+            tiles: tiles,
+          ).toList();
+
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Saved Suggestions'),
+            ),
+            body: ListView(children: divided),
+          );
+        },
+      ),
     );
   }
 }
