@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:english_words/english_words.dart';
 
 void main() {
   runApp(const MyApp());
@@ -7,109 +9,206 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Welcome to Flutter',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        primarySwatch: Colors.blue,
+        appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.yellow,
+            foregroundColor: Color.fromARGB(255, 81, 68, 255)),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: RandomWords(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class RandomWords extends StatefulWidget {
+  const RandomWords({Key? key}) : super(key: key);
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _RandomWordsState createState() => _RandomWordsState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+class _RandomWordsState extends State<RandomWords> {
+  final _suggestions = <WordPair>[];
+  final _biggerFont = const TextStyle(fontSize: 18.0);
+  final _saved = <WordPair>[];
+  bool cardMode = false;
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+        appBar: AppBar(
+          title: const Text('Startup Name Generator'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.list),
+              onPressed: _pushSaved,
+              tooltip: 'Saved Suggestions',
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
+            IconButton(
+              onPressed: (() {
+                setState(() {
+                  if (cardMode == false) {
+                    cardMode = true;
+                    debugPrint('$cardMode');
+                  } else if (cardMode == true) {
+                    cardMode = false;
+                    debugPrint('$cardMode');
+                  }
+                });
+              }),
+              tooltip:
+                  cardMode ? 'List Vizualization' : 'Card Mode Vizualization',
+              icon: Icon(Icons.android),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        body: _buildSuggestions(cardMode));
+  }
+
+//Favorites Screen
+  void _pushSaved() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (BuildContext context) {
+        final tiles = _saved.map(
+          (WordPair pair) {
+            return ListTile(
+              title: Text(
+                pair.asPascalCase,
+                style: _biggerFont,
+              ),
+            );
+          },
+        );
+        final divided = tiles.isNotEmpty
+            ? ListTile.divideTiles(
+                context: context,
+                tiles: tiles,
+              ).toList()
+            : <Widget>[];
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Saved Suggestions'),
+          ),
+          body: ListView(children: divided),
+        );
+      }),
+    );
+  }
+
+//Building Suggestions
+  Widget _buildSuggestions(bool cardMode) {
+    print('list mode changed');
+    if (cardMode == false) {
+      return ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemBuilder: (context, i) {
+          if (i.isOdd) return const Divider();
+
+          final index = i ~/ 2;
+          if (index >= _suggestions.length) {
+            _suggestions.addAll(generateWordPairs().take(10));
+          }
+          return _buildRow(_suggestions[index], index);
+        },
+      );
+    } else {
+      return _cardVizualizaton();
+    }
+  }
+
+//Building list Rows
+  Widget _buildRow(WordPair pair, int index) {
+    final alreadySaved = _saved.contains(_suggestions[index]);
+    var color = Colors.transparent;
+    final item = pair
+        .asPascalCase; //variável que verifica se o par de palavras já está dentro do conjunto _saved.
+    return Dismissible(
+        key: Key(item),
+        direction: DismissDirection.endToStart,
+        onDismissed: (direction) {
+          setState(() {
+            if (alreadySaved) {
+              _saved.remove(_suggestions[index]);
+            }
+            _suggestions.removeAt(index);
+          });
+        },
+        background: Container(
+          color: Color.fromARGB(255, 81, 68, 255),
+          padding: EdgeInsets.all(8.0),
+          alignment: Alignment.centerRight,
+          child: Text(
+            "Excluir",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+            ),
+          ),
+        ),
+        child: ListTile(
+          title: Text(
+            _suggestions[index].asPascalCase,
+            style: _biggerFont,
+          ),
+          onTap: () {
+            _editWordPair();
+          },
+          trailing: IconButton(
+              icon: Icon(alreadySaved ? Icons.favorite : Icons.favorite_border,
+                  color: alreadySaved ? Color.fromARGB(255, 81, 68, 255) : null,
+                  semanticLabel: alreadySaved ? 'Remove from saved' : 'Save'),
+              tooltip: "Favorite",
+              hoverColor: color,
+              onPressed: () {
+                setState(() {
+                  if (alreadySaved) {
+                    _saved.remove(_suggestions[index]);
+                  } else {
+                    _saved.add(_suggestions[index]);
+                  }
+                });
+              }),
+        ));
+  }
+
+  void _editWordPair() {
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (BuildContext context) {
+      return Scaffold(
+          appBar: AppBar(
+            title: const Text("Edit WordPair"),
+          ),
+          body: Center(
+            child: Text("Página em construção"),
+          ));
+    }));
+  }
+
+//Building cards vizualization
+  Widget _cardVizualizaton() {
+    print('card mode changed');
+    return GridView.builder(
+      padding: EdgeInsets.all(12),
+      gridDelegate: new SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+          childAspectRatio: 8),
+      itemCount: _suggestions.length,
+      itemBuilder: (context, index) {
+        //final index = i ~/ 2;
+        if (index >= _suggestions.length) {
+          _suggestions.addAll(generateWordPairs().take(10));
+        }
+        return Column(
+          children: [_buildRow(_suggestions[index], index)],
+        );
+      },
     );
   }
 }
